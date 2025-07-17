@@ -1,0 +1,44 @@
+name: Go build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19
+
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v3.8.0
+
+    - name: build server files
+      run: cd server && yarn install && yarn build  
+
+    - name: Build amd64
+      run: CGO_ENABLE=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o input2com_amd64
+    
+    - name: Build arm64
+      run: CGO_ENABLE=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o input2com_arm64
+    
+
+    - name: Set Release version env variable
+      run: |
+        echo "RELEASE_TAG=$(date -u '+%Y%m%d-%H%M%S')" >> $GITHUB_ENV
+
+    - name: Create GitHub release
+      uses: marvinpinto/action-automatic-releases@latest
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "${{ env.RELEASE_VERSION }}"
+        title: "${{ env.RELEASE_VERSION }}"
+        prerelease: false
+        files: |
+          input2com_amd64
+          input2com_arm64
+

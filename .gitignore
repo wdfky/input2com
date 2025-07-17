@@ -1,4 +1,4 @@
-go-touch-mapper
+input2com
 server/node_modules
 server/build
-
+.fuse*

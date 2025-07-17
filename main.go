@@ -183,7 +183,7 @@ func auto_detect_and_read(event_chan chan *event_pack) {
 			}
 			for index, devType := range auto_detect_result {
 				devName := get_dev_name_by_index(index)
-				if devName == "go-touch-mapper-virtual-device" {
+				if devName == "input2com-virtual-device" {
 					continue //跳过生成的虚拟设备
 				}
 				if devType == type_mouse || devType == type_keyboard || devType == type_joystick {
@@ -203,7 +203,7 @@ func auto_detect_and_read(event_chan chan *event_pack) {
 
 func main() {
 	//如果有参数-n 则测试模式
-	parser := argparse.NewParser("go-touch-mapper", " ")
+	parser := argparse.NewParser("input2com", " ")
 
 	var debug *bool = parser.Flag("d", "debug", &argparse.Options{
 		Required: false,

@@ -1,4 +1,4 @@
-module go-touch-mapper
+module input2com
 
 go 1.18
 
