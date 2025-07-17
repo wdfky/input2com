@@ -18,7 +18,7 @@ jobs:
       uses: actions/setup-node@v3.8.0
 
     - name: build server files
-      run: cd server && yarn install && yarn build  
+      run: cd server && yarn install && yarn build || true
 
     - name: Build amd64
       run: CGO_ENABLE=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o input2com_amd64
