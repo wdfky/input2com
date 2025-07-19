@@ -6,8 +6,8 @@ const mouseCode2name = {
     1: "左键",
     2: "右键",
     4: "中间",
-    8: "前进",
-    16: "后退",
+    16: "前进",
+    8: "后退",
 }
 
 const MousePointer = ({ x, y }) => {
@@ -56,7 +56,7 @@ const MouseContainer = ({ setMouseConfig, onMouseClick }) => {
                 marginLeft: "70px"
             }}
         >
-            {[1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4].map((mouseCode) => (
+            {[1 << 0, 1 << 1, 1 << 2, 1 << 4, 1 << 3].map((mouseCode) => (
                 <Grid key={mouseCode} item xs={2} >
                     <DndRecipient accept={ItemTypes.CARD} onDragHover={() => { }} onDrop={(item, _) => { setMouseConfig(mouseCode, item["key"]) }} >
                         <Button
