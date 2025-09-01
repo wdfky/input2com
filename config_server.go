@@ -70,7 +70,7 @@ func serve() {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("ok"))
 		} else {
-			if _, ok := mouse_valid_keys[key]; !ok {
+			if _, ok := mouseValidKeys[key]; !ok {
 				http.Error(w, "Invalid key", http.StatusBadRequest)
 				return
 			}
@@ -82,7 +82,7 @@ func serve() {
 				w.Write([]byte("ok"))
 			} else {
 				if _, ok := macros[value]; !ok {
-					http.Error(w, "Invalid macro name", http.StatusBadRequest)
+					http.Error(w, "Invalid macro Name", http.StatusBadRequest)
 					return
 				}
 				bkey, _ := strconv.ParseUint(key, 10, 8)
@@ -105,7 +105,7 @@ func serve() {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("ok"))
 		} else {
-			if _, ok := keyboard_valid_keys[key]; !ok {
+			if _, ok := keyboardValidKeys[key]; !ok {
 				http.Error(w, "Invalid key", http.StatusBadRequest)
 				return
 			}
@@ -117,7 +117,7 @@ func serve() {
 				w.Write([]byte("ok"))
 			} else {
 				if _, ok := macros[value]; !ok {
-					http.Error(w, "Invalid macro name", http.StatusBadRequest)
+					http.Error(w, "Invalid macro Name", http.StatusBadRequest)
 					return
 				}
 				bkey, _ := strconv.ParseUint(key, 10, 8)

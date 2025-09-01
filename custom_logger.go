@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	plainDebug_ignoreFile  = []byte("[DEBUG] ")
-	DebugPrefix_ignoreFile = log.Prefix{
-		Plain: plainDebug_ignoreFile,
-		Color: colorful.Purple(plainDebug_ignoreFile),
+	plaindebugIgnorefile  = []byte("[DEBUG] ")
+	DebugprefixIgnorefile = log.Prefix{
+		Plain: plaindebugIgnorefile,
+		Color: colorful.Purple(plaindebugIgnorefile),
 		File:  false,
 	}
 )
@@ -23,13 +23,13 @@ type customLogger struct {
 
 func (l *customLogger) Debug(v ...interface{}) {
 	if l.IsDebug() {
-		l.Output(1, DebugPrefix_ignoreFile, fmt.Sprintln(v...))
+		l.Output(1, DebugprefixIgnorefile, fmt.Sprintln(v...))
 	}
 }
 
 func (l *customLogger) Debugf(format string, v ...interface{}) {
 	if l.IsDebug() {
-		l.Output(1, DebugPrefix_ignoreFile, fmt.Sprintf(format, v...))
+		l.Output(1, DebugprefixIgnorefile, fmt.Sprintf(format, v...))
 	}
 }
 
@@ -37,4 +37,4 @@ func NewCustomLogger(out log.FdWriter) *customLogger {
 	return &customLogger{log.New(out)}
 }
 
-var logger *customLogger = NewCustomLogger(os.Stdout)
+var logger = NewCustomLogger(os.Stdout)
