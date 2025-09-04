@@ -1,0 +1,5 @@
+debug: false
+baudrate: 2000000
+ttyPath: "/dev/ttyUSB*"
+server:
+  port: 9264

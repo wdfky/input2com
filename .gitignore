@@ -2,3 +2,5 @@ input2com
 server/node_modules
 server/build
 .fuse*
+/internal/server/server/build/
+/internal/server/server/node_modules/

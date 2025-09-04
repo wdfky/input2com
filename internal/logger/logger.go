@@ -1,4 +1,4 @@
-package main
+package logger
 
 import (
 	"fmt"
@@ -17,24 +17,24 @@ var (
 	}
 )
 
-type customLogger struct {
+type CustomLogger struct {
 	*log.Logger
 }
 
-func (l *customLogger) Debug(v ...interface{}) {
+func (l *CustomLogger) Debug(v ...interface{}) {
 	if l.IsDebug() {
 		l.Output(1, DebugprefixIgnorefile, fmt.Sprintln(v...))
 	}
 }
 
-func (l *customLogger) Debugf(format string, v ...interface{}) {
+func (l *CustomLogger) Debugf(format string, v ...interface{}) {
 	if l.IsDebug() {
 		l.Output(1, DebugprefixIgnorefile, fmt.Sprintf(format, v...))
 	}
 }
 
-func NewCustomLogger(out log.FdWriter) *customLogger {
-	return &customLogger{log.New(out)}
+func NewCustomLogger(out log.FdWriter) *CustomLogger {
+	return &CustomLogger{log.New(out)}
 }
 
-var logger = NewCustomLogger(os.Stdout)
+var Logger = NewCustomLogger(os.Stdout)

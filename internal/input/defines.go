@@ -1,8 +1,8 @@
-package main
+package input
 
 import "strconv"
 
-var specialKeysMap = map[byte]byte{
+var SpecialKeysMap = map[byte]byte{
 	KeyLeftCtrl:   byte(1 << 0),
 	KeyLeftShift:  byte(1 << 1),
 	KeyLeftAlt:    byte(1 << 2),
@@ -173,7 +173,7 @@ const (
 	KeyVolumeDown  = byte(0x81)
 )
 
-var linux2hid = map[uint16]uint8{
+var Linux2hid = map[uint16]uint8{
 	30:  4,
 	48:  5,
 	46:  6,
@@ -281,7 +281,7 @@ var linux2hid = map[uint16]uint8{
 	126: 232,
 }
 
-var mouseValidKeys = map[string]bool{
+var MouseValidKeys = map[string]bool{
 	strconv.FormatUint(uint64(MouseBtnLeft), 10):    true,
 	strconv.FormatUint(uint64(MouseBtnRight), 10):   true,
 	strconv.FormatUint(uint64(MouseBtnMiddle), 10):  true,
@@ -289,7 +289,7 @@ var mouseValidKeys = map[string]bool{
 	strconv.FormatUint(uint64(MouseBtnForward), 10): true,
 }
 
-var keyboardValidKeys = map[string]bool{
+var KeyboardValidKeys = map[string]bool{
 	strconv.FormatUint(uint64(KeyLeftCtrl), 10):    true,
 	strconv.FormatUint(uint64(KeyLeftShift), 10):   true,
 	strconv.FormatUint(uint64(KeyLeftAlt), 10):     true,
