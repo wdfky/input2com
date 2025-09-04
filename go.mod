@@ -49,7 +49,6 @@ require (
 )
 
 require (
-	github.com/akamensky/argparse v1.3.1
 	github.com/creack/goselect v0.1.2 // indirect
 	github.com/kenshaw/evdev v0.1.0
 	github.com/withmandala/go-log v0.1.0
