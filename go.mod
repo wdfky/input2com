@@ -7,6 +7,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.20.1
 	go.bug.st/serial v1.6.4
+	golang.org/x/time v0.8.0
 )
 
 require (

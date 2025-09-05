@@ -1,10 +1,14 @@
 package serial
 
 import (
-	"go.bug.st/serial"
+	"context"
 	"input2com/internal/input"
 	"input2com/internal/logger"
 	"sync"
+	"time"
+
+	"go.bug.st/serial"
+	"golang.org/x/time/rate"
 )
 
 func OpenSerialWritePipe(portName string, baudRate int) (serial.Port, error) {
@@ -30,12 +34,20 @@ func intToByte(value int32) byte {
 }
 
 type ComMouseKeyboard struct {
-	port            serial.Port
+	serial.Port
 	mouseButtonByte byte
 	keyBytes        []byte
 	mu              sync.Mutex
+	limiter         *rate.Limiter
 }
 
+func (mk *ComMouseKeyboard) Write(p []byte) (n int, err error) {
+	// 等待限流器许可
+	if err = mk.limiter.Wait(context.TODO()); err != nil {
+		return 0, err
+	}
+	return mk.Port.Write(p)
+}
 func NewComMouseKeyboard(portName string, baudRate int) *ComMouseKeyboard {
 	port, err := OpenSerialWritePipe(portName, baudRate)
 	if err != nil {
@@ -44,13 +56,18 @@ func NewComMouseKeyboard(portName string, baudRate int) *ComMouseKeyboard {
 	}
 	port.Write([]byte{0x57, 0xAB, 0x02, 0x00, 0x00, 0x00, 0x00})
 	port.Write([]byte{0x57, 0xAB, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
-	return &ComMouseKeyboard{port: port, mouseButtonByte: 0x00, keyBytes: []byte{0x57, 0xAB, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}}
+	return &ComMouseKeyboard{
+		Port:            port,
+		mouseButtonByte: 0x00,
+		keyBytes:        []byte{0x57, 0xAB, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		limiter:         rate.NewLimiter(rate.Every(time.Millisecond), 1),
+	}
 }
 
 func (mk *ComMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
 	mk.mu.Lock()
 	defer mk.mu.Unlock()
-	_, err := mk.port.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, intToByte(dx), intToByte(dy), intToByte(Wheel)})
+	_, err := mk.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, intToByte(dx), intToByte(dy), intToByte(Wheel)})
 	if err != nil {
 		return err
 	}
@@ -61,7 +78,7 @@ func (mk *ComMouseKeyboard) MouseBtnDown(keyCode byte) error {
 	mk.mu.Lock()
 	defer mk.mu.Unlock()
 	mk.mouseButtonByte |= keyCode
-	_, err := mk.port.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, 0x00, 0x00, 0x00})
+	_, err := mk.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, 0x00, 0x00, 0x00})
 	if err != nil {
 		return err
 	}
@@ -72,7 +89,7 @@ func (mk *ComMouseKeyboard) MouseBtnUp(keyCode byte) error {
 	mk.mu.Lock()
 	defer mk.mu.Unlock()
 	mk.mouseButtonByte &^= keyCode
-	_, err := mk.port.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, 0x00, 0x00, 0x00})
+	_, err := mk.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, 0x00, 0x00, 0x00})
 	if err != nil {
 		return err
 	}
@@ -95,7 +112,7 @@ func (mk *ComMouseKeyboard) KeyDown(keyCode byte) error {
 			}
 		}
 	}
-	_, err := mk.port.Write(mk.keyBytes)
+	_, err := mk.Write(mk.keyBytes)
 	if err != nil {
 		return err
 	}
@@ -118,7 +135,7 @@ func (mk *ComMouseKeyboard) KeyUp(keyCode byte) error {
 			}
 		}
 	}
-	_, err := mk.port.Write(mk.keyBytes)
+	_, err := mk.Write(mk.keyBytes)
 	if err != nil {
 		return err
 	}
