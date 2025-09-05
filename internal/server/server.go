@@ -3,6 +3,7 @@ package server
 import (
 	"embed"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"input2com/internal/config"
 	"input2com/internal/input"
 	"input2com/internal/logger"
@@ -10,20 +11,10 @@ import (
 	"io/fs"
 	"net/http"
 	"strconv"
-	"sync"
-
-	"github.com/gin-gonic/gin"
 )
 
 //go:embed server/build
 var StaticFS embed.FS
-
-var (
-	MouseConfigDict    = make(map[byte]string)
-	KeyboardConfigDict = make(map[byte]string)
-	MousedictMutex     sync.RWMutex
-	KeyboarddictMutex  sync.RWMutex
-)
 
 func Serve() {
 	gin.SetMode(gin.ReleaseMode)
@@ -47,31 +38,31 @@ func Serve() {
 }
 
 func getMacros(c *gin.Context) {
-	KeyboarddictMutex.RLock()
-	defer KeyboarddictMutex.RUnlock()
+	macros.KeyboarddictMutex.RLock()
+	defer macros.KeyboarddictMutex.RUnlock()
 	c.JSON(http.StatusOK, macros.Macros)
 }
 
 func getMouseConfig(c *gin.Context) {
-	MousedictMutex.RLock()
-	defer MousedictMutex.RUnlock()
-	c.JSON(http.StatusOK, MouseConfigDict)
+	macros.MousedictMutex.RLock()
+	defer macros.MousedictMutex.RUnlock()
+	c.JSON(http.StatusOK, macros.MouseConfigDict)
 }
 
 func getKeyboardConfig(c *gin.Context) {
-	KeyboarddictMutex.RLock()
-	defer KeyboarddictMutex.RUnlock()
-	c.JSON(http.StatusOK, KeyboardConfigDict)
+	macros.KeyboarddictMutex.RLock()
+	defer macros.KeyboarddictMutex.RUnlock()
+	c.JSON(http.StatusOK, macros.KeyboardConfigDict)
 }
 
 func setMouseConfig(c *gin.Context) {
-	MousedictMutex.Lock()
-	defer MousedictMutex.Unlock()
+	macros.MousedictMutex.Lock()
+	defer macros.MousedictMutex.Unlock()
 	key := c.Query("key")
 	value := c.Query("value")
 
 	if key == "CLEAR_ALL" {
-		MouseConfigDict = make(map[byte]string)
+		macros.MouseConfigDict = make(map[byte]string)
 		logger.Logger.Info("clear mouse config")
 		c.String(http.StatusOK, "ok")
 		return
@@ -85,7 +76,7 @@ func setMouseConfig(c *gin.Context) {
 	if value == "CLEAR_FUNCTION" {
 		bkey, _ := strconv.ParseUint(key, 10, 8)
 		logger.Logger.Infof("clear mouse config: %d", bkey)
-		delete(MouseConfigDict, byte(bkey))
+		delete(macros.MouseConfigDict, byte(bkey))
 		c.String(http.StatusOK, "ok")
 		return
 	}
@@ -97,18 +88,18 @@ func setMouseConfig(c *gin.Context) {
 
 	bkey, _ := strconv.ParseUint(key, 10, 8)
 	logger.Logger.Infof("Set mouse config: %d -> %s", bkey, value)
-	MouseConfigDict[byte(bkey)] = value
+	macros.MouseConfigDict[byte(bkey)] = value
 	c.String(http.StatusOK, "ok")
 }
 
 func setKeyboardConfig(c *gin.Context) {
-	KeyboarddictMutex.Lock()
-	defer KeyboarddictMutex.Unlock()
+	macros.KeyboarddictMutex.Lock()
+	defer macros.KeyboarddictMutex.Unlock()
 	key := c.Query("key")
 	value := c.Query("value")
 
 	if key == "CLEAR_ALL" {
-		KeyboardConfigDict = make(map[byte]string)
+		macros.KeyboardConfigDict = make(map[byte]string)
 		logger.Logger.Info("clear keyboard config")
 		c.String(http.StatusOK, "ok")
 		return
@@ -122,7 +113,7 @@ func setKeyboardConfig(c *gin.Context) {
 	if value == "CLEAR_FUNCTION" {
 		bkey, _ := strconv.ParseUint(key, 10, 8)
 		logger.Logger.Infof("clear keyboard config: %d", bkey)
-		delete(KeyboardConfigDict, byte(bkey))
+		delete(macros.KeyboardConfigDict, byte(bkey))
 		c.String(http.StatusOK, "ok")
 		return
 	}
@@ -134,6 +125,6 @@ func setKeyboardConfig(c *gin.Context) {
 
 	bkey, _ := strconv.ParseUint(key, 10, 8)
 	logger.Logger.Infof("Set keyboard config: %d -> %s", bkey, value)
-	KeyboardConfigDict[byte(bkey)] = value
+	macros.KeyboardConfigDict[byte(bkey)] = value
 	c.String(http.StatusOK, "ok")
 }

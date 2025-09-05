@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -29,11 +30,17 @@ func clamp(value, min, max int32) int32 {
 }
 
 type Macro struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Fn          func(*MacroMouseKeyboard, chan bool)
+	Name        string                               `json:"name"`
+	Description string                               `json:"description"`
+	Fn          func(*MacroMouseKeyboard, chan bool) `json:"-"`
 }
 
+var (
+	MouseConfigDict    = make(map[byte]string)
+	KeyboardConfigDict = make(map[byte]string)
+	MousedictMutex     sync.RWMutex
+	KeyboarddictMutex  sync.RWMutex
+)
 var Macros = make(map[string]Macro)
 
 func downDragMacro(data [][4]int32) func(mk *MacroMouseKeyboard, ch chan bool) {
@@ -101,6 +108,7 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 	if err != nil {
 		logger.Logger.Fatalf("Failed to unmarshal macros file: %v", err)
 	}
+	logger.Logger.Infof("Loaded macros: %v", macroData)
 
 	for name, data := range macroData {
 		Macros[name] = Macro{
@@ -149,6 +157,7 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 }
 
 func (mk *MacroMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
+	// 分别处理 dx, dy, Wheel 的拆分移动
 	for dx != 0 || dy != 0 || Wheel != 0 {
 		stepDx := clamp(dx, -128, 127)
 		stepDy := clamp(dy, -128, 127)
@@ -162,15 +171,30 @@ func (mk *MacroMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
 	}
 	return nil
 }
-
 func (mk *MacroMouseKeyboard) MouseBtnDown(keyCode byte) error {
-	// This logic will be moved to server package
-	return mk.Ctrl.MouseBtnDown(keyCode)
+	value, ok := MouseConfigDict[keyCode]
+	if !ok { // 如果没有配置，直接调用控制器的MouseBtnDown
+		return mk.Ctrl.MouseBtnDown(keyCode)
+	} else {
+		if macroFunc, exists := mk.Macros[value]; exists { // 如果有宏函数，执行宏
+			go macroFunc.Fn(mk, mk.MouseBtnArgs[keyCode])
+			return nil
+		}
+		return mk.Ctrl.MouseBtnDown(keyCode) // 如果没有宏函数，直接调用控制器的MouseBtnDown
+	}
 }
 
 func (mk *MacroMouseKeyboard) MouseBtnUp(keyCode byte) error {
-	// This logic will be moved to server package
-	return mk.Ctrl.MouseBtnUp(keyCode)
+	value, ok := MouseConfigDict[keyCode]
+	if !ok { // 如果没有配置，直接调用控制器的MouseBtnDown
+		return mk.Ctrl.MouseBtnUp(keyCode)
+	} else {
+		if _, exists := mk.Macros[value]; exists { // 如果有宏函数，执行宏
+			mk.MouseBtnArgs[keyCode] <- true // 发送信号停止宏
+			return nil
+		}
+		return mk.Ctrl.MouseBtnDown(keyCode) // 如果没有宏函数，直接调用控制器的MouseBtnDown
+	}
 }
 
 func (mk *MacroMouseKeyboard) KeyDown(keyCode uint16) error {
