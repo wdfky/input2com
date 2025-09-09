@@ -43,24 +43,24 @@ var (
 )
 var Macros = make(map[string]Macro)
 
-func downDragMacro(data [][4]int32) func(mk *MacroMouseKeyboard, ch chan bool) {
+func downDragMacro(recoils []*Recoil) func(mk *MacroMouseKeyboard, ch chan bool) {
 	return func(mk *MacroMouseKeyboard, ch chan bool) {
-		counter := int32(0)
 		mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
+		defer mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
 		for {
 			select {
 			case <-ch:
-				mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
 				return
 			default:
-				for _, row := range data {
-					if row[0] > counter {
-						mk.Ctrl.MouseMove(row[1], row[2], 0)
-						time.Sleep(time.Duration(row[3]) * time.Millisecond)
-						break
+				for _, recoil := range recoils {
+					select {
+					case <-ch:
+						return
+					default:
+						mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
+						time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
 					}
 				}
-				counter++
 			}
 		}
 	}
@@ -88,6 +88,16 @@ func loadPlugins() {
 	}
 }
 
+type RecoilConfig struct {
+	Name    string    `json:"name"`
+	Recoils []*Recoil `json:"recoil"`
+}
+type Recoil struct {
+	Dx           int32   `json:"dx"`
+	Dy           int32   `json:"dy"`
+	RelativeTime float64 `json:"relative_time"`
+}
+
 func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboard {
 	mouseBtnArgs := make(map[byte]chan bool)
 	keyArgs := make(map[byte]chan bool)
@@ -103,18 +113,18 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 	if err != nil {
 		logger.Logger.Fatalf("Failed to read macros file: %v", err)
 	}
-	var macroData map[string][][4]int32
-	err = json.Unmarshal(file, &macroData)
+	var recoils []*RecoilConfig
+	err = json.Unmarshal(file, &recoils)
 	if err != nil {
 		logger.Logger.Fatalf("Failed to unmarshal macros file: %v", err)
 	}
-	logger.Logger.Infof("Loaded macros: %v", macroData)
+	logger.Logger.Infof("Loaded recoils: %v", recoils)
 
-	for name, data := range macroData {
-		Macros[name] = Macro{
-			Name:        name,
+	for _, recoil := range recoils {
+		Macros[recoil.Name] = Macro{
+			Name:        recoil.Name,
 			Description: "Data driven macro",
-			Fn:          downDragMacro(data),
+			Fn:          downDragMacro(recoil.Recoils),
 		}
 	}
 
@@ -193,7 +203,7 @@ func (mk *MacroMouseKeyboard) MouseBtnUp(keyCode byte) error {
 			mk.MouseBtnArgs[keyCode] <- true // 发送信号停止宏
 			return nil
 		}
-		return mk.Ctrl.MouseBtnDown(keyCode) // 如果没有宏函数，直接调用控制器的MouseBtnDown
+		return mk.Ctrl.MouseBtnUp(keyCode) // 如果没有宏函数，直接调用控制器的MouseBtnDown
 	}
 }
 
