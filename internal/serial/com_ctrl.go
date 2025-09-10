@@ -73,7 +73,9 @@ func (mk *ComMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
 	}
 	return nil
 }
-
+func (mk *ComMouseKeyboard) IsMouseBtnPressed(keyCode byte) bool {
+	return mk.mouseButtonByte&keyCode != 0
+}
 func (mk *ComMouseKeyboard) MouseBtnDown(keyCode byte) error {
 	mk.mu.Lock()
 	defer mk.mu.Unlock()

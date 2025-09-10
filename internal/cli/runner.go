@@ -196,6 +196,7 @@ func autoDetectAndRead(eventChan chan *eventPack) {
 					localIndex := index
 					go func() {
 						devices[localIndex] = true
+						macros.MouseConfigDict[devName] = make(map[byte]string)
 						devReader(eventChan, localIndex)
 						devices[localIndex] = false
 					}()
@@ -240,30 +241,30 @@ func Run(debug bool, baudrate int, ttyPath string) {
 			if event.Value == 0 {
 				logger.Logger.Debugf("%v 按键释放: %v", devName, event.Code)
 				if event.Code == uint16(evdev.BtnLeft) { // 鼠标左键释放
-					macroKB.MouseBtnUp(input.MouseBtnLeft)
+					macroKB.MouseBtnUp(input.MouseBtnLeft, devName)
 				} else if event.Code == uint16(evdev.BtnRight) { // 鼠标右键释放
-					macroKB.MouseBtnUp(input.MouseBtnRight)
+					macroKB.MouseBtnUp(input.MouseBtnRight, devName)
 				} else if event.Code == uint16(evdev.BtnMiddle) { // 鼠标中键释放
-					macroKB.MouseBtnUp(input.MouseBtnMiddle)
+					macroKB.MouseBtnUp(input.MouseBtnMiddle, devName)
 				} else if event.Code == uint16(evdev.BtnSide) { // 鼠标后退键释放
-					macroKB.MouseBtnUp(input.MouseBtnBack)
+					macroKB.MouseBtnUp(input.MouseBtnBack, devName)
 				} else if event.Code == uint16(evdev.BtnExtra) { // 鼠标前进键释放
-					macroKB.MouseBtnUp(input.MouseBtnForward)
+					macroKB.MouseBtnUp(input.MouseBtnForward, devName)
 				} else {
 					macroKB.KeyUp(event.Code) // 其他按键释放
 				}
 			} else if event.Value == 1 {
 				logger.Logger.Debugf("%v 按键按下: %v", devName, event.Code)
 				if event.Code == uint16(evdev.BtnLeft) { // 鼠标左键释放
-					macroKB.MouseBtnDown(input.MouseBtnLeft)
+					macroKB.MouseBtnDown(input.MouseBtnLeft, devName)
 				} else if event.Code == uint16(evdev.BtnRight) { // 鼠标右键释放
-					macroKB.MouseBtnDown(input.MouseBtnRight)
+					macroKB.MouseBtnDown(input.MouseBtnRight, devName)
 				} else if event.Code == uint16(evdev.BtnMiddle) { // 鼠标中键释放
-					macroKB.MouseBtnDown(input.MouseBtnMiddle)
+					macroKB.MouseBtnDown(input.MouseBtnMiddle, devName)
 				} else if event.Code == uint16(evdev.BtnSide) { // 鼠标后退键释放
-					macroKB.MouseBtnDown(input.MouseBtnBack)
+					macroKB.MouseBtnDown(input.MouseBtnBack, devName)
 				} else if event.Code == uint16(evdev.BtnExtra) { // 鼠标前进键释放
-					macroKB.MouseBtnDown(input.MouseBtnForward)
+					macroKB.MouseBtnDown(input.MouseBtnForward, devName)
 				} else {
 					macroKB.KeyDown(event.Code) // 其他按键释放
 				}

@@ -36,10 +36,11 @@ type Macro struct {
 }
 
 var (
-	MouseConfigDict    = make(map[byte]string)
-	KeyboardConfigDict = make(map[byte]string)
-	MousedictMutex     sync.RWMutex
-	KeyboarddictMutex  sync.RWMutex
+	MouseConfigDict       = make(map[string]map[byte]string)
+	MouseConfigDictSwitch = make(map[string]map[byte]string)
+	KeyboardConfigDict    = make(map[byte]string)
+	MousedictMutex        sync.RWMutex
+	KeyboarddictMutex     sync.RWMutex
 )
 var Macros = make(map[string]Macro)
 
@@ -47,25 +48,34 @@ func downDragMacro(recoils []*Recoil) func(mk *MacroMouseKeyboard, ch chan bool)
 	return func(mk *MacroMouseKeyboard, ch chan bool) {
 		mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
 		defer mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
-		for {
+		for _, recoil := range recoils {
 			select {
 			case <-ch:
 				return
 			default:
-				for _, recoil := range recoils {
-					select {
-					case <-ch:
-						return
-					default:
-						mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
-						time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
-					}
-				}
+				mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
+				time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
 			}
 		}
 	}
 }
-
+func downDragMacroWithRight(recoils []*Recoil) func(mk *MacroMouseKeyboard, ch chan bool) {
+	return func(mk *MacroMouseKeyboard, ch chan bool) {
+		mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
+		defer mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
+		for _, recoil := range recoils {
+			select {
+			case <-ch:
+				return
+			default:
+				if mk.Ctrl.IsMouseBtnPressed(input.MouseBtnRight) {
+					mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
+				}
+				time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
+			}
+		}
+	}
+}
 func loadPlugins() {
 	pluginsDir := "plugins"
 	entries, err := os.ReadDir(pluginsDir)
@@ -123,8 +133,13 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 	for _, recoil := range recoils {
 		Macros[recoil.Name] = Macro{
 			Name:        recoil.Name,
-			Description: "Data driven macro",
+			Description: "压枪宏仅按键按下",
 			Fn:          downDragMacro(recoil.Recoils),
+		}
+		Macros[recoil.Name+"_withright"] = Macro{
+			Name:        recoil.Name + "_withright",
+			Description: "压枪宏右键按下",
+			Fn:          downDragMacroWithRight(recoil.Recoils),
 		}
 	}
 
@@ -155,7 +170,16 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 			mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
 		},
 	}
-
+	Macros["switch"] = Macro{
+		Name:        "切换",
+		Description: "切换原生功能与宏功能",
+		Fn: func(mk *MacroMouseKeyboard, ch chan bool) {
+			MouseConfigDict, MouseConfigDictSwitch = MouseConfigDictSwitch, MouseConfigDict
+			mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
+			<-ch // 等待信号停止
+			mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
+		},
+	}
 	loadPlugins()
 
 	return &MacroMouseKeyboard{
@@ -181,30 +205,46 @@ func (mk *MacroMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
 	}
 	return nil
 }
-func (mk *MacroMouseKeyboard) MouseBtnDown(keyCode byte) error {
-	value, ok := MouseConfigDict[keyCode]
-	if !ok { // 如果没有配置，直接调用控制器的MouseBtnDown
+func (mk *MacroMouseKeyboard) MouseBtnDown(keyCode byte, devName string) error {
+
+	// 1. 优先根据设备名获取该设备的宏配置（外层 map 键为设备名）
+	deviceMacroConfig, deviceExists := MouseConfigDict[devName]
+	if !deviceExists {
+		// 设备无宏配置，直接调用底层控制器
 		return mk.Ctrl.MouseBtnDown(keyCode)
-	} else {
-		if macroFunc, exists := mk.Macros[value]; exists { // 如果有宏函数，执行宏
-			go macroFunc.Fn(mk, mk.MouseBtnArgs[keyCode])
-			return nil
-		}
-		return mk.Ctrl.MouseBtnDown(keyCode) // 如果没有宏函数，直接调用控制器的MouseBtnDown
 	}
+	// 2. 在设备配置中查找当前按键码对应的宏标识符
+	macroID, keyExists := deviceMacroConfig[keyCode]
+	if !keyExists {
+		// 当前按键在该设备下无宏配置，直接调用底层控制器
+		return mk.Ctrl.MouseBtnDown(keyCode)
+	}
+	if macroFunc, exists := mk.Macros[macroID]; exists { // 如果有宏函数，执行宏
+		go macroFunc.Fn(mk, mk.MouseBtnArgs[keyCode])
+		return nil
+	}
+	return mk.Ctrl.MouseBtnDown(keyCode) // 如果没有宏函数，直接调用控制器的MouseBtnDown
 }
 
-func (mk *MacroMouseKeyboard) MouseBtnUp(keyCode byte) error {
-	value, ok := MouseConfigDict[keyCode]
-	if !ok { // 如果没有配置，直接调用控制器的MouseBtnDown
+func (mk *MacroMouseKeyboard) MouseBtnUp(keyCode byte, devName string) error {
+
+	// 1. 优先根据设备名获取该设备的宏配置（外层 map 键为设备名）
+	deviceMacroConfig, deviceExists := MouseConfigDict[devName]
+	if !deviceExists {
+		// 设备无宏配置，直接调用底层控制器
 		return mk.Ctrl.MouseBtnUp(keyCode)
-	} else {
-		if _, exists := mk.Macros[value]; exists { // 如果有宏函数，执行宏
-			mk.MouseBtnArgs[keyCode] <- true // 发送信号停止宏
-			return nil
-		}
-		return mk.Ctrl.MouseBtnUp(keyCode) // 如果没有宏函数，直接调用控制器的MouseBtnDown
 	}
+	// 2. 在设备配置中查找当前按键码对应的宏标识符
+	macroID, keyExists := deviceMacroConfig[keyCode]
+	if !keyExists {
+		// 当前按键在该设备下无宏配置，直接调用底层控制器
+		return mk.Ctrl.MouseBtnUp(keyCode)
+	}
+	if _, exists := mk.Macros[macroID]; exists { // 如果有宏函数，执行宏
+		mk.MouseBtnArgs[keyCode] <- true // 发送信号停止宏
+		return nil
+	}
+	return mk.Ctrl.MouseBtnUp(keyCode)
 }
 
 func (mk *MacroMouseKeyboard) KeyDown(keyCode uint16) error {

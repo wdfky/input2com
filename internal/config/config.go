@@ -11,6 +11,7 @@ type Config struct {
 	Server   struct {
 		Port int `mapstructure:"port"`
 	} `mapstructure:"server"`
+	MouseConfigDict map[string]map[byte]string `mapstructure:"mouseConfigDict"`
 }
 
 var Cfg *Config

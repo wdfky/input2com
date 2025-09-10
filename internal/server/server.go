@@ -3,7 +3,6 @@ package server
 import (
 	"embed"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"input2com/internal/config"
 	"input2com/internal/input"
 	"input2com/internal/logger"
@@ -11,6 +10,8 @@ import (
 	"io/fs"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 //go:embed server/build
@@ -59,10 +60,11 @@ func setMouseConfig(c *gin.Context) {
 	macros.MousedictMutex.Lock()
 	defer macros.MousedictMutex.Unlock()
 	key := c.Query("key")
+	devName := c.Query("devName")
 	value := c.Query("value")
 
 	if key == "CLEAR_ALL" {
-		macros.MouseConfigDict = make(map[byte]string)
+		macros.MouseConfigDict[devName] = make(map[byte]string)
 		logger.Logger.Info("clear mouse config")
 		c.String(http.StatusOK, "ok")
 		return
@@ -76,7 +78,7 @@ func setMouseConfig(c *gin.Context) {
 	if value == "CLEAR_FUNCTION" {
 		bkey, _ := strconv.ParseUint(key, 10, 8)
 		logger.Logger.Infof("clear mouse config: %d", bkey)
-		delete(macros.MouseConfigDict, byte(bkey))
+		delete(macros.MouseConfigDict[devName], byte(bkey))
 		c.String(http.StatusOK, "ok")
 		return
 	}
@@ -88,7 +90,7 @@ func setMouseConfig(c *gin.Context) {
 
 	bkey, _ := strconv.ParseUint(key, 10, 8)
 	logger.Logger.Infof("Set mouse config: %d -> %s", bkey, value)
-	macros.MouseConfigDict[byte(bkey)] = value
+	macros.MouseConfigDict[devName][byte(bkey)] = value
 	c.String(http.StatusOK, "ok")
 }
 

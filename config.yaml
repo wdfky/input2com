@@ -3,3 +3,11 @@ baudrate: 2000000
 ttyPath: "/dev/ttyUSB*"
 server:
   port: 9264
+mouseConfigDict:
+  # 设备1的配置
+  "Logitech MX Master 3":
+    1: "btn_left"    # 左键
+  # 设备2的配置
+  "Razer DeathAdder V2":
+    1: "btn_left"    # 左键
+    2: "switch"   # 右键
