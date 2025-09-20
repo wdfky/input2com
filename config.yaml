@@ -5,7 +5,7 @@ server:
   port: 9264
 mouseConfigDict:
   # 设备1的配置
-  "Logitech MX Master 3":
+  "Logitech G703 LIGHTSPEED Wireless Gaming Mouse w/ HERO":
     1: "btn_left"    # 左键
   # 设备2的配置
   "Razer DeathAdder V2":

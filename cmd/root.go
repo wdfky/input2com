@@ -18,7 +18,7 @@ var RootCmd = &cobra.Command{
 	Short: "将输入设备事件转发到串口",
 	Long:  `一个用于将鼠标、键盘、手柄等输入设备事件通过串口转发出去的工具。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cli.Run(config.Cfg.Debug, config.Cfg.Baudrate, config.Cfg.TtyPath)
+		cli.Run(config.Cfg.Debug, config.Cfg.Baudrate, config.Cfg.TtyPath, config.Cfg.MouseConfigDict)
 		return nil
 	},
 }

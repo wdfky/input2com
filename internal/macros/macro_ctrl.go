@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -208,7 +209,7 @@ func (mk *MacroMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
 func (mk *MacroMouseKeyboard) MouseBtnDown(keyCode byte, devName string) error {
 
 	// 1. 优先根据设备名获取该设备的宏配置（外层 map 键为设备名）
-	deviceMacroConfig, deviceExists := MouseConfigDict[devName]
+	deviceMacroConfig, deviceExists := MouseConfigDict[strings.ToLower(devName)]
 	if !deviceExists {
 		// 设备无宏配置，直接调用底层控制器
 		return mk.Ctrl.MouseBtnDown(keyCode)
@@ -229,7 +230,7 @@ func (mk *MacroMouseKeyboard) MouseBtnDown(keyCode byte, devName string) error {
 func (mk *MacroMouseKeyboard) MouseBtnUp(keyCode byte, devName string) error {
 
 	// 1. 优先根据设备名获取该设备的宏配置（外层 map 键为设备名）
-	deviceMacroConfig, deviceExists := MouseConfigDict[devName]
+	deviceMacroConfig, deviceExists := MouseConfigDict[strings.ToLower(devName)]
 	if !deviceExists {
 		// 设备无宏配置，直接调用底层控制器
 		return mk.Ctrl.MouseBtnUp(keyCode)

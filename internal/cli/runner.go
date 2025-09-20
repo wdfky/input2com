@@ -207,7 +207,7 @@ func autoDetectAndRead(eventChan chan *eventPack) {
 	}
 }
 
-func Run(debug bool, baudrate int, ttyPath string) {
+func Run(debug bool, baudrate int, ttyPath string, mouseConfigDict map[string]map[byte]string) {
 	go server.Serve() //启动配置服务器
 
 	if debug {
@@ -230,7 +230,7 @@ func Run(debug bool, baudrate int, ttyPath string) {
 	go autoDetectAndRead(eventsCh)
 	comKB := serial.NewComMouseKeyboard(devpath, baudrate)
 	macroKB := macros.NewMacroMouseKeyboard(comKB)
-
+	macros.MouseConfigDict = mouseConfigDict
 	handelRelEvent := func(x, y, HWhell, Wheel int32) {
 		if x != 0 || y != 0 || HWhell != 0 || Wheel != 0 {
 			macroKB.MouseMove(x, y, Wheel)
