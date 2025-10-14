@@ -6,6 +6,8 @@ import (
 	"input2com/internal/logger"
 	"input2com/internal/serial"
 	"io/fs"
+	"math"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,19 +47,61 @@ var (
 )
 var Macros = make(map[string]Macro)
 
-func downDragMacro(recoils []*Recoil) func(mk *MacroMouseKeyboard, ch chan bool) {
+func downDragMacro(recoils []*Recoil, xMultiplier, yMultiplier float64) func(mk *MacroMouseKeyboard, ch chan bool) {
 	return func(mk *MacroMouseKeyboard, ch chan bool) {
 		mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
 		defer mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
+
+		// 执行所有recoil移动
 		for _, recoil := range recoils {
 			select {
 			case <-ch:
-				return
+				return // 收到释放信号，立即返回
 			default:
-				mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
-				time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
+				if recoil.Dx > 5 || recoil.Dy > 5 {
+					dx := float64(recoil.Dx) * xMultiplier
+					dy := float64(recoil.Dy) * yMultiplier
+					totalTime := recoil.RelativeTime
+
+					// 计算每个微小移动的时间（0.008-0.009s）
+					stepTime := 0.008 + rand.Float64()*0.001
+					stepCount := int(math.Ceil(totalTime / stepTime))
+					if stepCount < 1 {
+						stepCount = 1
+					}
+					actualStepTime := totalTime / float64(stepCount)
+					stepDx := dx / float64(stepCount)
+					stepDy := dy / float64(stepCount)
+
+					for i := 0; i < stepCount; i++ {
+						select {
+						case <-ch:
+							return // 收到释放信号，立即返回
+						default:
+							curDx := int32(math.Round(stepDx))
+							curDy := int32(math.Round(stepDy))
+							if curDx != 0 || curDy != 0 {
+								mk.Ctrl.MouseMove(curDx, curDy, 0)
+							}
+
+							sleepDuration := time.Duration(actualStepTime * float64(time.Second))
+							if sleepDuration > 0 {
+								select {
+								case <-ch:
+									return
+								case <-time.After(sleepDuration):
+								}
+							}
+						}
+					}
+				} else {
+					mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
+					time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
+				}
 			}
 		}
+		// recoils序列执行完毕，等待释放信号
+		<-ch
 	}
 }
 func downDragMacroWithRight(recoils []*Recoil) func(mk *MacroMouseKeyboard, ch chan bool) {
@@ -76,6 +120,76 @@ func downDragMacroWithRight(recoils []*Recoil) func(mk *MacroMouseKeyboard, ch c
 			}
 		}
 	}
+}
+
+// ---------- 主函数 ----------
+func downDragMacroWithForward(recoils []*Recoil, xMultiplier, yMultiplier float64) func(mk *MacroMouseKeyboard, ch chan bool) {
+	return func(mk *MacroMouseKeyboard, ch chan bool) {
+		mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
+		defer mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
+
+		for _, recoil := range recoils {
+			select {
+			case <-ch:
+				return
+			default:
+				if mk.Ctrl.IsMouseBtnPressed(input.MouseBtnForward) {
+					dx := float64(recoil.Dx) * xMultiplier
+					dy := float64(recoil.Dy) * yMultiplier
+					dist := math.Hypot(dx, dy)
+
+					if dist > 2 {
+						// 拆分步
+						n := int(math.Ceil(dist / 2))
+						stepX := dx / float64(n)
+						stepY := dy / float64(n)
+
+						var accX, accY float64 // 累积残差
+						prevEase := 0.0
+
+						for i := 1; i <= n; i++ {
+							select {
+							case <-ch:
+								return
+							default:
+								t := float64(i) / float64(n)
+								curEase := easeInOutCubic(t)
+								deltaEase := curEase - prevEase
+								prevEase = curEase
+
+								// 本次应移动的总增量（考虑残差累积）
+								accX += stepX
+								accY += stepY
+
+								moveX := math.Floor(accX + 0.5)
+								moveY := math.Floor(accY + 0.5)
+								accX -= moveX
+								accY -= moveY
+
+								if moveX != 0 || moveY != 0 {
+									mk.Ctrl.MouseMove(int32(moveX), int32(moveY), 0)
+								}
+
+								sleepDur := deltaEase * recoil.RelativeTime
+								time.Sleep(time.Duration(sleepDur * float64(time.Second)))
+							}
+						}
+					} else {
+						mk.Ctrl.MouseMove(int32(dx), int32(dy), 0)
+						time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
+					}
+				} else {
+					time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
+				}
+			}
+		}
+	}
+}
+func easeInOutCubic(t float64) float64 {
+	if t < 0.5 {
+		return 4 * t * t * t
+	}
+	return 1 - math.Pow(-2*t+2, 3)/2
 }
 func loadPlugins() {
 	pluginsDir := "plugins"
@@ -100,8 +214,10 @@ func loadPlugins() {
 }
 
 type RecoilConfig struct {
-	Name    string    `json:"name"`
-	Recoils []*Recoil `json:"recoil"`
+	Name        string    `json:"name"`
+	Recoils     []*Recoil `json:"recoil"`
+	XMultiplier float64   `json:"x_multiplier"` // X 轴乘数因子
+	YMultiplier float64   `json:"y_multiplier"` // Y 轴乘数因子
 }
 type Recoil struct {
 	Dx           int32   `json:"dx"`
@@ -135,12 +251,17 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 		Macros[recoil.Name] = Macro{
 			Name:        recoil.Name,
 			Description: "压枪宏仅按键按下",
-			Fn:          downDragMacro(recoil.Recoils),
+			Fn:          downDragMacro(recoil.Recoils, recoil.XMultiplier, recoil.YMultiplier),
 		}
 		Macros[recoil.Name+"_withright"] = Macro{
 			Name:        recoil.Name + "_withright",
 			Description: "压枪宏右键按下",
 			Fn:          downDragMacroWithRight(recoil.Recoils),
+		}
+		Macros[recoil.Name+"_forward"] = Macro{
+			Name:        recoil.Name + "_forward",
+			Description: "压枪宏前侧键按下",
+			Fn:          downDragMacroWithForward(recoil.Recoils, recoil.XMultiplier, recoil.YMultiplier),
 		}
 	}
 
