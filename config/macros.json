@@ -6018,7 +6018,7 @@
     ]
       },
   {
-    "name": "m7merge",
+    "name": "m7merge2",
     "recoil": [
       {
         "dx": 0,
@@ -6223,6 +6223,377 @@
         "dy": 1,
         "relative_time": 0.3760044574737549,
         "count": 47
+      }
+    ]
+  },
+  {
+    "name": "aswalmerge",
+    "recoil": [
+      {
+        "dx": 0,
+        "dy": 0,
+        "relative_time": 0,
+        "count": 1
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.07703948020935059,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.07198143005371094,
+        "count": 12
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.07200980186462402,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.0720055103302002,
+        "count": 12
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.06100344657897949,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.0599825382232666,
+        "count": 12
+      },
+      {
+        "dx": -1,
+        "dy": 1,
+        "relative_time": 0.059998512268066406,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.12011837959289551,
+        "count": 24
+      },
+      {
+        "dx": 1,
+        "dy": 2,
+        "relative_time": 0.05994462966918945,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.05992412567138672,
+        "count": 12
+      },
+      {
+        "dx": 1,
+        "dy": 1,
+        "relative_time": 0.06010627746582031,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.05990862846374512,
+        "count": 12
+      },
+      {
+        "dx": 1,
+        "dy": 2,
+        "relative_time": 0.05998730659484863,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.06000089645385742,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 1,
+        "relative_time": 0.025002002716064453,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.02903461456298828,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 1,
+        "relative_time": 0.059989213943481445,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.06045246124267578,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 1,
+        "relative_time": 0.02953958511352539,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.029992103576660156,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.05999875068664551,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.06007671356201172,
+        "count": 12
+      },
+      {
+        "dx": -1,
+        "dy": 1,
+        "relative_time": 0.05998730659484863,
+        "count": 12
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.05993247032165527,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.05999898910522461,
+        "count": 12
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.05998420715332031,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.0600123405456543,
+        "count": 12
+      },
+      {
+        "dx": -1,
+        "dy": 1,
+        "relative_time": 0.05999326705932617,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.23999667167663574,
+        "count": 48
+      },
+      {
+        "dx": 1,
+        "dy": 1,
+        "relative_time": 0.060006141662597656,
+        "count": 12
+      },
+      {
+        "dx": 1,
+        "dy": 2,
+        "relative_time": 0.05999636650085449,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.05999445915222168,
+        "count": 12
+      },
+      {
+        "dx": 1,
+        "dy": 2,
+        "relative_time": 0.05999326705932617,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.06000328063964844,
+        "count": 12
+      },
+      {
+        "dx": 1,
+        "dy": 1,
+        "relative_time": 0.059996604919433594,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.0599973201751709,
+        "count": 12
+      },
+      {
+        "dx": 0,
+        "dy": 1,
+        "relative_time": 0.030005216598510742,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.02999258041381836,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.029996395111083984,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.029988765716552734,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.030022144317626953,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.03000330924987793,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.029972314834594727,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.030003786087036133,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.0299990177154541,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.03000164031982422,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.030008792877197266,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.030002832412719727,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.030088186264038086,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.029937267303466797,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.02995157241821289,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.03003549575805664,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.030079126358032227,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.029900550842285156,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.030015230178833008,
+        "count": 6
+      },
+      {
+        "dx": 0,
+        "dy": 2,
+        "relative_time": 0.029990673065185547,
+        "count": 6
+      },
+      {
+        "dx": -1,
+        "dy": 2,
+        "relative_time": 0.004999876022338867,
+        "count": 1
+      },
+      {
+        "dx": -1,
+        "dy": 1,
+        "relative_time": 0.0050051212310791016,
+        "count": 1
+      },
+      {
+        "dx": -1,
+        "dy": 0,
+        "relative_time": 0.019995689392089844,
+        "count": 4
+      },
+      {
+        "dx": 0,
+        "dy": 0,
+        "relative_time": 0.0249936580657959,
+        "count": 5
       }
     ]
   }
