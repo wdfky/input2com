@@ -64,15 +64,86 @@ func NewComMouseKeyboard(portName string, baudRate int) *ComMouseKeyboard {
 	}
 }
 
-func (mk *ComMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
+//func (mk *ComMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
+//	mk.mu.Lock()
+//	defer mk.mu.Unlock()
+//	_, err := mk.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, intToByte(dx), intToByte(dy), intToByte(Wheel)})
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
+
+// 大范围鼠标移动方法
+func (mk *ComMouseKeyboard) MouseMoveLarge(dx, dy, wheel int32) error {
 	mk.mu.Lock()
 	defer mk.mu.Unlock()
-	_, err := mk.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, intToByte(dx), intToByte(dy), intToByte(Wheel)})
+
+	// 处理X方向移动
+	var xBytes [2]byte
+	if dx >= 0 {
+		// 向右移动
+		xBytes = int16ToBytes(int16(dx))
+	} else {
+		// 向左移动，使用补码表示
+		xBytes = int16ToBytes(int16(65536 + dx))
+	}
+
+	// 处理Y方向移动
+	var yBytes [2]byte
+	if dy >= 0 {
+		// 向下移动
+		yBytes = int16ToBytes(int16(dy))
+	} else {
+		// 向上移动，使用补码表示
+		yBytes = int16ToBytes(int16(65536 + dy))
+	}
+
+	// 构建数据包
+	data := []byte{
+		0x57, 0xAB, 0x22, // 头部和命令字节
+		mk.mouseButtonByte,   // 鼠标按键状态
+		xBytes[0], xBytes[1], // X方向移动距离（低字节在前）
+		yBytes[0], yBytes[1], // Y方向移动距离（低字节在前）
+		intToByte(wheel), // 滚轮滚动齿数
+	}
+
+	_, err := mk.Write(data)
 	if err != nil {
 		return err
 	}
 	return nil
 }
+
+// 将int16转换为2字节（小端序）
+func int16ToBytes(value int16) [2]byte {
+	return [2]byte{
+		byte(value & 0xFF),        // 低字节
+		byte((value >> 8) & 0xFF), // 高字节
+	}
+}
+
+// 原有的小范围移动方法（保持兼容性）
+func (mk *ComMouseKeyboard) MouseMove(dx, dy, wheel int32) error {
+	// 如果移动范围在单字节范围内，使用小范围移动
+	if dx >= -127 && dx <= 127 && dy >= -127 && dy <= 127 {
+		return mk.mouseMoveSmall(dx, dy, wheel)
+	}
+	// 否则使用大范围移动
+	return mk.MouseMoveLarge(dx, dy, wheel)
+}
+
+// 原有的小范围移动实现（重命名）
+func (mk *ComMouseKeyboard) mouseMoveSmall(dx, dy, wheel int32) error {
+	mk.mu.Lock()
+	defer mk.mu.Unlock()
+	_, err := mk.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, intToByte(dx), intToByte(dy), intToByte(wheel)})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (mk *ComMouseKeyboard) IsMouseBtnPressed(keyCode byte) bool {
 	return mk.mouseButtonByte&keyCode != 0
 }
