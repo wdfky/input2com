@@ -2,6 +2,7 @@ package macros
 
 import (
 	"encoding/json"
+	"input2com/internal/config"
 	"input2com/internal/input"
 	"input2com/internal/logger"
 	"input2com/internal/serial"
@@ -15,10 +16,12 @@ import (
 )
 
 type MacroMouseKeyboard struct {
-	MouseBtnArgs map[byte]chan bool
-	KeyArgs      map[byte]chan bool
-	Ctrl         *serial.ComMouseKeyboard
-	Macros       map[string]Macro
+	MouseBtnArgs    map[byte]chan bool
+	KeyArgs         map[byte]chan bool
+	Ctrl            *serial.ComMouseKeyboard
+	Macros          map[string]Macro
+	AimData         [4]int32
+	LastTriggerTime int64
 }
 
 func clamp(value, min, max int32) int32 {
@@ -245,7 +248,48 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 			}
 		},
 	}
-
+	Macros["trigger"] = Macro{
+		Name:        "AI自动扳机",
+		Description: "按住x开启AI自动扳机",
+		Fn: func(mk *MacroMouseKeyboard, ch chan bool) {
+			for {
+				select {
+				case <-ch:
+					return
+				default:
+					if math.Abs(float64(mk.AimData[0])/float64(mk.AimData[2])) < 0.5 &&
+						math.Abs(float64(mk.AimData[1])/float64(mk.AimData[3])) < 0.8 &&
+						time.Now().UnixMilli()-mk.LastTriggerTime > config.GetTriggerDelay() {
+						mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
+						time.Sleep(20 * time.Millisecond)
+						mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
+					}
+				}
+			}
+		},
+	}
+	Macros["trigger_left"] = Macro{
+		Name:        "AI自动扳机",
+		Description: "开火键的扳机,用于蓄力类武器",
+		Fn: func(mk *MacroMouseKeyboard, ch chan bool) {
+			mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
+			for {
+				select {
+				case <-ch:
+					mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
+					return
+				default:
+					if math.Abs(float64(mk.AimData[0])/float64(mk.AimData[2])) < 0.5 &&
+						math.Abs(float64(mk.AimData[1])/float64(mk.AimData[3])) < 0.8 &&
+						time.Now().UnixMilli()-mk.LastTriggerTime > config.GetTriggerDelay() {
+						mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
+						time.Sleep(20 * time.Millisecond)
+						mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
+					}
+				}
+			}
+		},
+	}
 	Macros["btn_left"] = Macro{
 		Name:        "左键",
 		Description: "普通的左键功能，用于其他按键映射",

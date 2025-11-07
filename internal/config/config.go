@@ -12,10 +12,14 @@ type Config struct {
 		Port int `mapstructure:"port"`
 	} `mapstructure:"server"`
 	MouseConfigDict map[string]map[byte]string `mapstructure:"mouseConfigDict"`
+	TriggerDelay    int64                      `mapstructure:"triggerDelay"`
 }
 
 var Cfg *Config
 
+func GetTriggerDelay() int64 {
+	return Cfg.TriggerDelay
+}
 func InitConfig() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
