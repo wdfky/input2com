@@ -24,6 +24,10 @@ type MacroMouseKeyboard struct {
 	LastTriggerTime int64
 }
 
+func (mk *MacroMouseKeyboard) SetAimData(x, y, x2, y2 int32) error {
+	mk.AimData = [4]int32{x, y, x2, y2}
+	return nil
+}
 func clamp(value, min, max int32) int32 {
 	if value < min {
 		return min

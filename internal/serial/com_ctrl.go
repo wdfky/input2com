@@ -2,6 +2,7 @@ package serial
 
 import (
 	"context"
+	"fmt"
 	"input2com/internal/input"
 	"input2com/internal/logger"
 	"sync"
@@ -39,6 +40,13 @@ type ComMouseKeyboard struct {
 	keyBytes        []byte
 	mu              sync.Mutex
 	limiter         *rate.Limiter
+
+	// 新增：读取相关字段
+	recvChan   chan []byte   // 接收数据的通道
+	readBuffer []byte        // 读取缓冲区
+	stopChan   chan struct{} // 停止信号
+	reading    bool          // 读取状态标志
+	readMutex  sync.Mutex    // 读取状态锁
 }
 
 func (mk *ComMouseKeyboard) Write(p []byte) (n int, err error) {
@@ -47,6 +55,98 @@ func (mk *ComMouseKeyboard) Write(p []byte) (n int, err error) {
 		return 0, err
 	}
 	return mk.Port.Write(p)
+}
+
+// 新增：启动数据读取协程
+func (mk *ComMouseKeyboard) StartReading() {
+	mk.readMutex.Lock()
+	defer mk.readMutex.Unlock()
+
+	if mk.reading {
+		return // 已经在读取中
+	}
+
+	mk.reading = true
+	mk.recvChan = make(chan []byte, 100) // 缓冲通道，避免阻塞
+	mk.stopChan = make(chan struct{})
+
+	go mk.readLoop()
+}
+
+// 新增：停止数据读取
+func (mk *ComMouseKeyboard) StopReading() {
+	mk.readMutex.Lock()
+	defer mk.readMutex.Unlock()
+
+	if !mk.reading {
+		return
+	}
+
+	close(mk.stopChan)
+	mk.reading = false
+}
+
+// 新增：读取循环
+func (mk *ComMouseKeyboard) readLoop() {
+	buffer := make([]byte, 256)
+
+	for {
+		select {
+		case <-mk.stopChan:
+			close(mk.recvChan)
+			return
+		default:
+			// 设置读取超时
+			mk.SetReadTimeout(100 * time.Millisecond)
+
+			n, err := mk.Read(buffer)
+			if err != nil {
+				// 超时是正常情况，继续读取
+				if err.Error() == "EOF" || err.Error() == "read timeout" {
+					continue
+				}
+				logger.Logger.Errorf("Serial read error: %v", err)
+				continue
+			}
+
+			if n > 0 {
+				data := make([]byte, n)
+				copy(data, buffer[:n])
+
+				// 将数据发送到通道
+				select {
+				case mk.recvChan <- data:
+					// 数据成功发送到通道
+				default:
+					// 通道已满，丢弃最旧的数据（可选）
+					select {
+					case <-mk.recvChan: // 丢弃一个旧数据
+						mk.recvChan <- data // 放入新数据
+					default:
+						// 通道为空，直接放入（这种情况不应该发生）
+						mk.recvChan <- data
+					}
+				}
+			}
+		}
+	}
+}
+
+// ReadResponse 新增：读取响应数据（带超时）
+func (mk *ComMouseKeyboard) ReadResponse(timeout time.Duration) ([]byte, error) {
+	if !mk.reading {
+		return nil, fmt.Errorf("reading is not started")
+	}
+
+	select {
+	case data, ok := <-mk.recvChan:
+		if !ok {
+			return nil, fmt.Errorf("receive channel is closed")
+		}
+		return data, nil
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("read response timeout")
+	}
 }
 func NewComMouseKeyboard(portName string, baudRate int) *ComMouseKeyboard {
 	port, err := OpenSerialWritePipe(portName, baudRate)
