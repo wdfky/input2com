@@ -441,3 +441,17 @@ var KeyboardValidKeys = map[string]bool{
 	strconv.FormatUint(uint64(KeyVolumeUp), 10):    true,
 	strconv.FormatUint(uint64(KeyVolumeDown), 10):  true,
 }
+var MouseKeyDown = map[byte]string{
+	MouseBtnLeft:    ".left(1)",
+	MouseBtnRight:   ".right(1)",
+	MouseBtnMiddle:  ".middle(1)",
+	MouseBtnBack:    ".side1(1)",
+	MouseBtnForward: ".side2(1)",
+}
+var MouseKeyUp = map[byte]string{
+	MouseBtnLeft:    ".left(0)",
+	MouseBtnRight:   ".right(0)",
+	MouseBtnMiddle:  ".middle(0)",
+	MouseBtnBack:    ".side1(0)",
+	MouseBtnForward: ".side2(0)",
+}
