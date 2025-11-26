@@ -17,6 +17,7 @@ import (
 	"input2com/internal/server"
 
 	"github.com/kenshaw/evdev"
+	"input2com/internal/remote"
 )
 
 type eventPack struct {
@@ -229,7 +230,12 @@ func Run(debug bool, baudrate int, ttyPath string, mouseConfigDict map[string]ma
 	eventsCh := make(chan *eventPack) //主要设备事件管道
 	go autoDetectAndRead(eventsCh)
 	comKB := serial.NewComMouseKeyboard(devpath, baudrate)
+	makcuKB, err := serial.Connect(devpath, baudrate)
 	macroKB := macros.NewMacroMouseKeyboard(comKB)
+	macroKB := macros.NewMacroMouseKeyboard(makcuKB)
+	remoteCtl := remote.NewRemoteControl(macroKB)
+	go remoteCtl.Start()
+	defer remoteCtl.Stop()
 	macros.MouseConfigDict = mouseConfigDict
 	handelRelEvent := func(x, y, HWhell, Wheel int32) {
 		if x != 0 || y != 0 || HWhell != 0 || Wheel != 0 {

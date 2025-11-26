@@ -13,12 +13,20 @@ type Config struct {
 	} `mapstructure:"server"`
 	MouseConfigDict map[string]map[byte]string `mapstructure:"mouseConfigDict"`
 	TriggerDelay    int64                      `mapstructure:"triggerDelay"`
+	AimDelay        int32                      `mapstructure:"aimDelay"`
+	AimSpeed        int                        `mapstructure:"aimSpeed"`
 }
 
 var Cfg *Config
 
 func GetTriggerDelay() int64 {
 	return Cfg.TriggerDelay
+}
+func GetAimDelay() int32 {
+	return Cfg.AimDelay
+}
+func GetAimSpeed() int {
+	return Cfg.AimSpeed
 }
 func InitConfig() {
 	viper.SetConfigName("config")

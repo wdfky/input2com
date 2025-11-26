@@ -10,6 +10,7 @@ import (
 
 	"go.bug.st/serial"
 	"golang.org/x/time/rate"
+	"sync/atomic"
 )
 
 func OpenSerialWritePipe(portName string, baudRate int) (serial.Port, error) {
@@ -40,6 +41,9 @@ type ComMouseKeyboard struct {
 	keyBytes        []byte
 	mu              sync.Mutex
 	limiter         *rate.Limiter
+	speed           float64
+	residualDx      float64 // 存储dx的小数累积
+	aiming          int32   // 原子标志位：0-非瞄准状态，1-瞄准状态
 
 	// 新增：读取相关字段
 	recvChan   chan []byte   // 接收数据的通道
@@ -47,8 +51,25 @@ type ComMouseKeyboard struct {
 	stopChan   chan struct{} // 停止信号
 	reading    bool          // 读取状态标志
 	readMutex  sync.Mutex    // 读取状态锁
+	lasTime    time.Time
 }
 
+// SetAiming 设置瞄准状态
+func (mk *ComMouseKeyboard) SetAiming(aiming bool) {
+	var value int32 = 0
+	if aiming {
+		value = 1
+	}
+	atomic.StoreInt32(&mk.aiming, value)
+}
+
+// IsAiming 检查是否处于瞄准状态
+func (mk *ComMouseKeyboard) IsAiming() bool {
+	return atomic.LoadInt32(&mk.aiming) == 1
+}
+func (mk *ComMouseKeyboard) SetSpeed(speed float64) {
+	mk.speed = speed
+}
 func (mk *ComMouseKeyboard) Write(p []byte) (n int, err error) {
 	// 等待限流器许可
 	if err = mk.limiter.Wait(context.TODO()); err != nil {
@@ -161,7 +182,19 @@ func NewComMouseKeyboard(portName string, baudRate int) *ComMouseKeyboard {
 		mouseButtonByte: 0x00,
 		keyBytes:        []byte{0x57, 0xAB, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 		limiter:         rate.NewLimiter(rate.Every(time.Millisecond), 1),
+		speed:           1,
 	}
+}
+
+func (mk *ComMouseKeyboard) MouseMoveWithSpeed(dx, dy, wheel int32) error {
+	return mk.mouseMoveSmall(dx, dy, wheel)
+	//// 如果移动范围在单字节范围内，使用小范围移动
+	//if dx >= -20 && dx <= 20 && dy >= -20 && dy <= 20 {
+	//	return mk.mouseMoveSmall(dx, dy, wheel)
+	//}
+	//// 否则使用大范围移动
+	//return mk.MouseMoveLarge(dx, dy, wheel)
+
 }
 
 //func (mk *ComMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
@@ -225,18 +258,33 @@ func int16ToBytes(value int16) [2]byte {
 
 // 原有的小范围移动方法（保持兼容性）
 func (mk *ComMouseKeyboard) MouseMove(dx, dy, wheel int32) error {
-	// 如果移动范围在单字节范围内，使用小范围移动
-	if dx >= -127 && dx <= 127 && dy >= -127 && dy <= 127 {
-		return mk.mouseMoveSmall(dx, dy, wheel)
+	mk.mu.Lock()
+	defer mk.mu.Unlock()
+	// 加上之前累积的小数部分
+	totalDx := float64(dx)
+
+	// 根据速度缩放
+	scaledDx := totalDx*mk.speed + mk.residualDx
+
+	// 取整数部分作为本次移动
+	moveDx := int32(scaledDx)
+
+	// 保存小数部分用于下次补偿
+	mk.residualDx = scaledDx - float64(moveDx)
+
+	_, err := mk.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, intToByte(moveDx), intToByte(dy), intToByte(wheel)})
+	if err != nil {
+		return err
 	}
-	// 否则使用大范围移动
-	return mk.MouseMoveLarge(dx, dy, wheel)
+	return nil
+
 }
 
 // 原有的小范围移动实现（重命名）
 func (mk *ComMouseKeyboard) mouseMoveSmall(dx, dy, wheel int32) error {
 	mk.mu.Lock()
 	defer mk.mu.Unlock()
+
 	_, err := mk.Write([]byte{0x57, 0xAB, 0x02, mk.mouseButtonByte, intToByte(dx), intToByte(dy), intToByte(wheel)})
 	if err != nil {
 		return err
@@ -244,6 +292,12 @@ func (mk *ComMouseKeyboard) mouseMoveSmall(dx, dy, wheel int32) error {
 	return nil
 }
 
+func (mk *ComMouseKeyboard) MouseBtnClick(keyCode byte) error {
+	mk.MouseBtnDown(keyCode)
+	time.Sleep(time.Millisecond * 100)
+	mk.MouseBtnUp(keyCode)
+	return nil
+}
 func (mk *ComMouseKeyboard) IsMouseBtnPressed(keyCode byte) bool {
 	return mk.mouseButtonByte&keyCode != 0
 }

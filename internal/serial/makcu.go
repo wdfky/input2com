@@ -7,20 +7,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"go.bug.st/serial"
 )
-
-func utf16ToString(buf []uint16) string {
-	for i, v := range buf {
-		if v == 0 {
-			return syscall.UTF16ToString(buf[:i])
-		}
-	}
-	return syscall.UTF16ToString(buf)
-}
 
 type MakcuHandle struct {
 	PortName string
@@ -389,7 +379,7 @@ func (m *MakcuHandle) SetButtonStatus(enable bool) error {
 	return nil
 }
 
-func (m *MakcuHandle) MoveMouse(dx, dy, wheel int32) error {
+func (m *MakcuHandle) MouseMove(dx, dy, wheel int32) error {
 
 	if wheel != 0 {
 		_, err := m.Write([]byte(fmt.Sprintf(".wheel(%d)\r", wheel)))
@@ -677,6 +667,15 @@ func (m *MakcuHandle) GetButtonStates() map[string]bool {
 		}
 	}
 	return states
+}
+func (m *MakcuHandle) IsMouseBtnPressed(keyCode byte) bool {
+
+}
+func (m *MakcuHandle) KeyDown(keyCode byte) error {
+	return nil
+}
+func (m *MakcuHandle) KeyUp(keyCode byte) error {
+	return nil
 }
 
 // ----------------------- 新增：GetButtonMask 方法 -----------------------

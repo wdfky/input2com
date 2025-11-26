@@ -5,7 +5,6 @@ import (
 	"input2com/internal/config"
 	"input2com/internal/input"
 	"input2com/internal/logger"
-	"input2com/internal/serial"
 	"io/fs"
 	"math"
 	"os"
@@ -13,19 +12,32 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"math/rand"
 )
 
 type MacroMouseKeyboard struct {
 	MouseBtnArgs    map[byte]chan bool
 	KeyArgs         map[byte]chan bool
-	Ctrl            *serial.ComMouseKeyboard
+	Ctrl            MouseCtrl
 	Macros          map[string]Macro
-	AimData         [4]int32
+	PreData         [5]int32
+	AimData         [5]int32
 	LastTriggerTime int64
+	LastDecTime     time.Time
+	A               bool
+}
+type MouseCtrl interface {
+	MouseBtnDown(keyCode byte) error
+	MouseBtnUp(keyCode byte) error
+	MouseMove(dx, dy, wheel int32) error
+	IsMouseBtnPressed(keyCode byte) bool
+	KeyDown(keyCode byte) error
+	KeyUp(keyCode byte) error
 }
 
-func (mk *MacroMouseKeyboard) SetAimData(x, y, x2, y2 int32) error {
-	mk.AimData = [4]int32{x, y, x2, y2}
+func (mk *MacroMouseKeyboard) SetAimData(x, y, x2, y2, timeStamp int32) error {
+	mk.PreData = mk.AimData
+	mk.AimData = [5]int32{x, y, x2, y2, timeStamp}
 	return nil
 }
 func clamp(value, min, max int32) int32 {
@@ -53,38 +65,35 @@ var (
 )
 var Macros = make(map[string]Macro)
 
-func downDragMacro(recoils []*Recoil, xMultiplier, yMultiplier float64) func(mk *MacroMouseKeyboard, ch chan bool) {
+func downDragMacro(recoils []*Recoil, multiplier float64) func(mk *MacroMouseKeyboard, ch chan bool) {
 	return func(mk *MacroMouseKeyboard, ch chan bool) {
 		mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
 		defer mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
 
 		// 执行所有recoil移动
 		for _, recoil := range recoils {
+
 			select {
 			case <-ch:
 				return // 收到释放信号，立即返回
 			default:
 				if recoil.Count > 0 {
-					moveCnt := recoil.Count
-					actualStepTime := recoil.RelativeTime / float64(moveCnt)
+					moveCnt := float64(recoil.Count) * multiplier
+					actualStepTime := recoil.RelativeTime / moveCnt
 					sleepDuration := time.Duration(actualStepTime * float64(time.Second))
 					for i := 0; i < int(moveCnt); i++ {
 						select {
 						case <-ch:
 							return // 收到释放信号，立即返回
 						default:
-							mk.Ctrl.MouseMove(recoil.Dx, recoil.Dx, 0)
-							if sleepDuration > 0 {
-								select {
-								case <-ch:
-									return
-								case <-time.After(sleepDuration):
-								}
-							}
+							//fmt.Println(recoil.Dx, recoil.Dy, sleepDuration)
+							mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
+							time.Sleep(sleepDuration)
 						}
 					}
 				} else {
 					mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
+					//fmt.Println(1, recoil.Dx, recoil.Dy, recoil.Count)
 					time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
 				}
 			}
@@ -93,7 +102,7 @@ func downDragMacro(recoils []*Recoil, xMultiplier, yMultiplier float64) func(mk 
 		<-ch
 	}
 }
-func downDragMacroWithRight(recoils []*Recoil) func(mk *MacroMouseKeyboard, ch chan bool) {
+func downDragMacroWithRight(recoils []*Recoil, multiplier float64) func(mk *MacroMouseKeyboard, ch chan bool) {
 	return func(mk *MacroMouseKeyboard, ch chan bool) {
 		mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
 		defer mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
@@ -103,9 +112,34 @@ func downDragMacroWithRight(recoils []*Recoil) func(mk *MacroMouseKeyboard, ch c
 				return
 			default:
 				if mk.Ctrl.IsMouseBtnPressed(input.MouseBtnRight) {
-					mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
+					if recoil.Count > 0 {
+						moveCnt := float64(recoil.Count) * multiplier
+						actualStepTime := recoil.RelativeTime / moveCnt
+						sleepDuration := time.Duration(actualStepTime * float64(time.Second))
+						for i := 0; i < int(moveCnt); i++ {
+							select {
+							case <-ch:
+								return
+							case <-time.After(sleepDuration):
+								mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
+							}
+						}
+					} else {
+						select {
+						case <-ch:
+							return
+						case <-time.After(time.Duration(recoil.RelativeTime * float64(time.Second))):
+							mk.Ctrl.MouseMove(recoil.Dx, recoil.Dy, 0)
+						}
+					}
+				} else {
+					select {
+					case <-ch:
+						return
+					case <-time.After(time.Duration(recoil.RelativeTime * float64(time.Second))):
+						// 不执行移动，只等待
+					}
 				}
-				time.Sleep(time.Duration(recoil.RelativeTime * float64(time.Second)))
 			}
 		}
 		// recoils序列执行完毕，等待释放信号
@@ -114,7 +148,7 @@ func downDragMacroWithRight(recoils []*Recoil) func(mk *MacroMouseKeyboard, ch c
 }
 
 // ---------- 主函数 ----------
-func downDragMacroWithForward(recoils []*Recoil, xMultiplier, yMultiplier float64) func(mk *MacroMouseKeyboard, ch chan bool) {
+func downDragMacroWithForward(recoils []*Recoil, multiplier float64) func(mk *MacroMouseKeyboard, ch chan bool) {
 	return func(mk *MacroMouseKeyboard, ch chan bool) {
 		mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
 		defer mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
@@ -125,7 +159,7 @@ func downDragMacroWithForward(recoils []*Recoil, xMultiplier, yMultiplier float6
 			default:
 				if mk.Ctrl.IsMouseBtnPressed(input.MouseBtnForward) {
 					if recoil.Count > 0 {
-						moveCnt := float64(recoil.Count) * xMultiplier
+						moveCnt := float64(recoil.Count) * multiplier
 						actualStepTime := recoil.RelativeTime / moveCnt
 						sleepDuration := time.Duration(actualStepTime * float64(time.Second))
 						for i := 0; i < int(moveCnt); i++ {
@@ -183,19 +217,18 @@ func loadPlugins() {
 }
 
 type RecoilConfig struct {
-	Name        string    `json:"name"`
-	Recoils     []*Recoil `json:"recoil"`
-	XMultiplier float64   `json:"x_multiplier"` // X 轴乘数因子
-	YMultiplier float64   `json:"y_multiplier"` // Y 轴乘数因子
+	Name       string    `json:"name"`
+	Recoils    []*Recoil `json:"recoil"`
+	Multiplier float64   `json:"multiplier"` //乘数因子
 }
 type Recoil struct {
 	Dx           int32   `json:"dx"`
 	Dy           int32   `json:"dy"`
 	RelativeTime float64 `json:"relative_time"`
-	Count        int32
+	Count        int32   `json:"count"`
 }
 
-func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboard {
+func NewMacroMouseKeyboard(controler MouseCtrl) *MacroMouseKeyboard {
 	mouseBtnArgs := make(map[byte]chan bool)
 	keyArgs := make(map[byte]chan bool)
 	for i := 0; i < 8; i++ {
@@ -221,17 +254,17 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 		Macros[recoil.Name] = Macro{
 			Name:        recoil.Name,
 			Description: "压枪宏仅按键按下",
-			Fn:          downDragMacro(recoil.Recoils, recoil.XMultiplier, recoil.YMultiplier),
+			Fn:          downDragMacro(recoil.Recoils, recoil.Multiplier),
 		}
 		Macros[recoil.Name+"_withright"] = Macro{
 			Name:        recoil.Name + "_withright",
 			Description: "压枪宏右键按下",
-			Fn:          downDragMacroWithRight(recoil.Recoils),
+			Fn:          downDragMacroWithRight(recoil.Recoils, recoil.Multiplier),
 		}
 		Macros[recoil.Name+"_forward"] = Macro{
 			Name:        recoil.Name + "_forward",
 			Description: "压枪宏前侧键按下",
-			Fn:          downDragMacroWithForward(recoil.Recoils, recoil.XMultiplier, recoil.YMultiplier),
+			Fn:          downDragMacroWithForward(recoil.Recoils, recoil.Multiplier),
 		}
 	}
 
@@ -261,12 +294,15 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 				case <-ch:
 					return
 				default:
-					if math.Abs(float64(mk.AimData[0])/float64(mk.AimData[2])) < 0.5 &&
-						math.Abs(float64(mk.AimData[1])/float64(mk.AimData[3])) < 0.8 &&
-						time.Now().UnixMilli()-mk.LastTriggerTime > config.GetTriggerDelay() {
+					if math.Abs(float64(mk.AimData[0])/float64(mk.AimData[2])) < 1.1 &&
+						math.Abs(float64(mk.AimData[1])/float64(mk.AimData[3])) < 1.1 &&
+						time.Now().UnixMilli()-mk.LastTriggerTime > config.GetTriggerDelay()+int64(rand.Intn(20)) {
 						mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
-						time.Sleep(20 * time.Millisecond)
+						time.Sleep(time.Duration(10+rand.Int31()%10) * time.Millisecond)
 						mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
+						mk.LastTriggerTime = time.Now().UnixMilli()
+					} else {
+						time.Sleep(7 * time.Millisecond)
 					}
 				}
 			}
@@ -298,11 +334,45 @@ func NewMacroMouseKeyboard(controler *serial.ComMouseKeyboard) *MacroMouseKeyboa
 		Name:        "左键",
 		Description: "普通的左键功能，用于其他按键映射",
 		Fn: func(mk *MacroMouseKeyboard, ch chan bool) {
+			//now := time.Now()
 			mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
+			<-ch // 等待信号停止
+			mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
+			//fmt.Println(time.Now().Sub(now))
+		},
+	}
+
+	Macros["test"] = Macro{
+		Name:        "左键",
+		Description: "普通的左键功能，用于其他按键映射",
+		Fn: func(mk *MacroMouseKeyboard, ch chan bool) {
+			mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
+			for i := 0; i <= 10; i++ {
+				mk.Ctrl.MouseMove(100, 0, 0)
+				mk.LastDecTime = time.Now()
+				mk.A = true
+				time.Sleep(time.Millisecond * 500)
+				mk.Ctrl.MouseMove(-100, 0, 0)
+
+				time.Sleep(time.Second * 1)
+			}
 			<-ch // 等待信号停止
 			mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)
 		},
 	}
+
+	Macros["forward"] = Macro{
+		Name:        "前进",
+		Description: "普通的前进功能，用于其他按键映射",
+		Fn: func(mk *MacroMouseKeyboard, ch chan bool) {
+			//now := time.Now()
+			mk.Ctrl.MouseBtnDown(input.MouseBtnForward)
+			<-ch // 等待信号停止
+			mk.Ctrl.MouseBtnUp(input.MouseBtnForward)
+			//fmt.Println(time.Now().Sub(now))
+		},
+	}
+
 	Macros["switch"] = Macro{
 		Name:        "切换",
 		Description: "切换原生功能与宏功能",
@@ -341,6 +411,7 @@ func (mk *MacroMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
 func (mk *MacroMouseKeyboard) MouseBtnDown(keyCode byte, devName string) error {
 
 	// 1. 优先根据设备名获取该设备的宏配置（外层 map 键为设备名）
+	//fmt.Println(strings.ToLower(devName))
 	deviceMacroConfig, deviceExists := MouseConfigDict[strings.ToLower(devName)]
 	if !deviceExists {
 		// 设备无宏配置，直接调用底层控制器
