@@ -16,8 +16,9 @@ import (
 	"input2com/internal/serial"
 	"input2com/internal/server"
 
-	"github.com/kenshaw/evdev"
 	"input2com/internal/remote"
+
+	"github.com/kenshaw/evdev"
 )
 
 type eventPack struct {
@@ -229,14 +230,27 @@ func Run(debug bool, baudrate int, ttyPath string, mouseConfigDict map[string]ma
 
 	eventsCh := make(chan *eventPack) //主要设备事件管道
 	go autoDetectAndRead(eventsCh)
-	comKB := serial.NewComMouseKeyboard(devpath, baudrate)
+	//comKB := serial.NewComMouseKeyboard(devpath, baudrate)
 	makcuKB, err := serial.Connect(devpath, baudrate)
-	macroKB := macros.NewMacroMouseKeyboard(comKB)
+	if makcuKB == nil {
+		panic(err)
+	}
+	//macroKB := macros.NewMacroMouseKeyboard(comKB)
 	macroKB := macros.NewMacroMouseKeyboard(makcuKB)
 	remoteCtl := remote.NewRemoteControl(macroKB)
 	go remoteCtl.Start()
 	defer remoteCtl.Stop()
 	macros.MouseConfigDict = mouseConfigDict
+
+	//Makcu 的回调事件,只会触发宏，不会触发设备事件
+	handelMakcuEvent := func(btn serial.MouseButton, pressed bool) {
+		if pressed {
+			macroKB.BtnDown(byte(1<<btn), "makcu")
+		} else {
+			macroKB.BtnUp(byte(1<<btn), "makcu")
+		}
+	}
+	makcuKB.SetButtonCallback(handelMakcuEvent)
 	handelRelEvent := func(x, y, HWhell, Wheel int32) {
 		if x != 0 || y != 0 || HWhell != 0 || Wheel != 0 {
 			macroKB.MouseMove(x, y, Wheel)

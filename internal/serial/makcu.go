@@ -614,9 +614,9 @@ func (m *MakcuHandle) handleButtonData(buttonMask byte) {
 
 			// 更新内部状态
 			if isPressed {
-				m.currentButtonMask |= (1 << bit)
+				m.currentButtonMask |= 1 << bit
 			} else {
-				m.currentButtonMask &^= (1 << bit)
+				m.currentButtonMask &^= 1 << bit
 			}
 
 			// 记录按钮状态变化
@@ -669,7 +669,7 @@ func (m *MakcuHandle) GetButtonStates() map[string]bool {
 	return states
 }
 func (m *MakcuHandle) IsMouseBtnPressed(keyCode byte) bool {
-
+	return (m.currentButtonMask & keyCode) != 0
 }
 func (m *MakcuHandle) KeyDown(keyCode byte) error {
 	return nil

@@ -7,16 +7,16 @@ import (
 	"input2com/internal/logger"
 	"io/fs"
 	"math"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
-	"math/rand"
 )
 
 type MacroMouseKeyboard struct {
-	MouseBtnArgs    map[byte]chan bool
+	MouseBtnArgs    map[string]map[byte]chan bool
 	KeyArgs         map[byte]chan bool
 	Ctrl            MouseCtrl
 	Macros          map[string]Macro
@@ -229,10 +229,15 @@ type Recoil struct {
 }
 
 func NewMacroMouseKeyboard(controler MouseCtrl) *MacroMouseKeyboard {
-	mouseBtnArgs := make(map[byte]chan bool)
+	mouseBtnArgs := make(map[string]map[byte]chan bool)
 	keyArgs := make(map[byte]chan bool)
+	mouseBtnArgs["default"] = make(map[byte]chan bool)
 	for i := 0; i < 8; i++ {
-		mouseBtnArgs[byte(1<<i)] = make(chan bool, 1)
+		mouseBtnArgs["default"][byte(1<<i)] = make(chan bool, 1)
+	}
+	mouseBtnArgs["makcu"] = make(map[byte]chan bool)
+	for i := 0; i < 8; i++ {
+		mouseBtnArgs["makcu"][byte(1<<i)] = make(chan bool, 1)
 	}
 	for i := 0; i < 256; i++ {
 		keyArgs[byte(i)] = make(chan bool, 1)
@@ -408,6 +413,7 @@ func (mk *MacroMouseKeyboard) MouseMove(dx, dy, Wheel int32) error {
 	}
 	return nil
 }
+
 func (mk *MacroMouseKeyboard) MouseBtnDown(keyCode byte, devName string) error {
 
 	// 1. 优先根据设备名获取该设备的宏配置（外层 map 键为设备名）
@@ -424,7 +430,11 @@ func (mk *MacroMouseKeyboard) MouseBtnDown(keyCode byte, devName string) error {
 		return mk.Ctrl.MouseBtnDown(keyCode)
 	}
 	if macroFunc, exists := mk.Macros[macroID]; exists { // 如果有宏函数，执行宏
-		go macroFunc.Fn(mk, mk.MouseBtnArgs[keyCode])
+		if _, ok := mk.MouseBtnArgs[devName]; ok {
+			go macroFunc.Fn(mk, mk.MouseBtnArgs[devName][keyCode])
+		} else {
+			go macroFunc.Fn(mk, mk.MouseBtnArgs["default"][keyCode])
+		}
 		return nil
 	}
 	return mk.Ctrl.MouseBtnDown(keyCode) // 如果没有宏函数，直接调用控制器的MouseBtnDown
@@ -445,12 +455,69 @@ func (mk *MacroMouseKeyboard) MouseBtnUp(keyCode byte, devName string) error {
 		return mk.Ctrl.MouseBtnUp(keyCode)
 	}
 	if _, exists := mk.Macros[macroID]; exists { // 如果有宏函数，执行宏
-		mk.MouseBtnArgs[keyCode] <- true // 发送信号停止宏
+		if _, ok := mk.MouseBtnArgs[devName]; ok {
+			mk.MouseBtnArgs[devName][keyCode] <- true
+		} else {
+			mk.MouseBtnArgs["default"][keyCode] <- true
+		}
+		//mk.MouseBtnArgs[keyCode] <- true // 发送信号停止宏
 		return nil
 	}
 	return mk.Ctrl.MouseBtnUp(keyCode)
 }
 
+// 下面两个是如果没有宏配置就啥也不干的版本
+func (mk *MacroMouseKeyboard) BtnDown(keyCode byte, devName string) error {
+
+	// 1. 优先根据设备名获取该设备的宏配置（外层 map 键为设备名）
+	//fmt.Println(strings.ToLower(devName))
+	deviceMacroConfig, deviceExists := MouseConfigDict[strings.ToLower(devName)]
+	if !deviceExists {
+		// 设备无宏配置，直接调用底层控制器
+		return nil
+	}
+	// 2. 在设备配置中查找当前按键码对应的宏标识符
+	macroID, keyExists := deviceMacroConfig[keyCode]
+	if !keyExists {
+		// 当前按键在该设备下无宏配置，直接调用底层控制器
+		return nil
+	}
+	if macroFunc, exists := mk.Macros[macroID]; exists { // 如果有宏函数，执行宏
+		if _, ok := mk.MouseBtnArgs[devName]; ok {
+			go macroFunc.Fn(mk, mk.MouseBtnArgs[devName][keyCode])
+		} else {
+			go macroFunc.Fn(mk, mk.MouseBtnArgs["default"][keyCode])
+		}
+		return nil
+	}
+	return nil
+}
+
+func (mk *MacroMouseKeyboard) BtnUp(keyCode byte, devName string) error {
+
+	// 1. 优先根据设备名获取该设备的宏配置（外层 map 键为设备名）
+	deviceMacroConfig, deviceExists := MouseConfigDict[strings.ToLower(devName)]
+	if !deviceExists {
+		// 设备无宏配置，直接调用底层控制器
+		return nil
+	}
+	// 2. 在设备配置中查找当前按键码对应的宏标识符
+	macroID, keyExists := deviceMacroConfig[keyCode]
+	if !keyExists {
+		// 当前按键在该设备下无宏配置，直接调用底层控制器
+		return nil
+	}
+	if _, exists := mk.Macros[macroID]; exists { // 如果有宏函数，执行宏
+		if _, ok := mk.MouseBtnArgs[devName]; ok {
+			mk.MouseBtnArgs[devName][keyCode] <- true
+		} else {
+			mk.MouseBtnArgs["default"][keyCode] <- true
+		}
+		//mk.MouseBtnArgs[keyCode] <- true // 发送信号停止宏
+		return nil
+	}
+	return nil
+}
 func (mk *MacroMouseKeyboard) KeyDown(keyCode uint16) error {
 	return mk.Ctrl.KeyDown(input.Linux2hid[keyCode])
 }
