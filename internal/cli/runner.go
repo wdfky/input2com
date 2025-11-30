@@ -235,8 +235,16 @@ func Run(debug bool, baudrate int, ttyPath string, mouseConfigDict map[string]ma
 	if makcuKB == nil {
 		panic(err)
 	}
+	makcuKB.SetButtonStatus(true)
+	makcuKB, err = serial.ChangeBaudRate(makcuKB)
+	if makcuKB == nil {
+		panic(err)
+	}
+	go makcuKB.ListenLoop()
+	defer makcuKB.Close()
 	//macroKB := macros.NewMacroMouseKeyboard(comKB)
 	macroKB := macros.NewMacroMouseKeyboard(makcuKB)
+
 	remoteCtl := remote.NewRemoteControl(macroKB)
 	go remoteCtl.Start()
 	defer remoteCtl.Stop()
@@ -244,6 +252,7 @@ func Run(debug bool, baudrate int, ttyPath string, mouseConfigDict map[string]ma
 
 	//Makcu 的回调事件,只会触发宏，不会触发设备事件
 	handelMakcuEvent := func(btn serial.MouseButton, pressed bool) {
+		//logger.Logger.Infof("btn %d, pressed: %t", btn, pressed)
 		if pressed {
 			macroKB.BtnDown(byte(1<<btn), "makcu")
 		} else {
@@ -289,7 +298,7 @@ func Run(debug bool, baudrate int, ttyPath string, mouseConfigDict map[string]ma
 					macroKB.KeyDown(event.Code) // 其他按键释放
 				}
 			} else if event.Value == 2 {
-				logger.Logger.Debugf("%v 按键重复: %v", devName, event.Code)
+				//logger.Logger.Debugf("%v 按键重复: %v", devName, event.Code)
 			}
 		}
 	}

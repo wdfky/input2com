@@ -11,6 +11,7 @@ import (
 	"net"
 	"sync"
 	"time"
+	"input2com/internal/serial"
 )
 
 // 定义数据包结构，用于线程间传递
@@ -170,6 +171,8 @@ func (r *Remote) handleMotion() {
 						mutx -= 50
 					}
 					var remainder float64
+					r.Ctrl.Ctrl.LockMouse(serial.MOUSE_X, 1)
+
 					if r.Ctrl.Ctrl.IsMouseBtnPressed(input.MouseBtnRight) {
 						// 使用调整后的mutx
 						points := GeneratePullTrajectory(float64(mutx), int(abs(mutx)/9), 0.8, 0.9, 0)
@@ -200,6 +203,7 @@ func (r *Remote) handleMotion() {
 							time.Sleep(time.Millisecond * time.Duration(rand.Intn(2)+config.GetAimSpeed()))
 						}
 					}
+					r.Ctrl.Ctrl.LockMouse(serial.MOUSE_X, 0)
 					lastTriggerTime = data.Timestamp + int32(time.Now().UnixMilli()-startTime)
 				}
 			}

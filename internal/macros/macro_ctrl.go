@@ -33,6 +33,8 @@ type MouseCtrl interface {
 	IsMouseBtnPressed(keyCode byte) bool
 	KeyDown(keyCode byte) error
 	KeyUp(keyCode byte) error
+	LockMouse(Button int, lock int) error
+	Click(i int) error
 }
 
 func (mk *MacroMouseKeyboard) SetAimData(x, y, x2, y2, timeStamp int32) error {
@@ -302,6 +304,8 @@ func NewMacroMouseKeyboard(controler MouseCtrl) *MacroMouseKeyboard {
 					if math.Abs(float64(mk.AimData[0])/float64(mk.AimData[2])) < 1.1 &&
 						math.Abs(float64(mk.AimData[1])/float64(mk.AimData[3])) < 1.1 &&
 						time.Now().UnixMilli()-mk.LastTriggerTime > config.GetTriggerDelay()+int64(rand.Intn(20)) {
+						logger.Logger.Infof("trigger")
+						//mk.Ctrl.Click(1)
 						mk.Ctrl.MouseBtnDown(input.MouseBtnLeft)
 						time.Sleep(time.Duration(10+rand.Int31()%10) * time.Millisecond)
 						mk.Ctrl.MouseBtnUp(input.MouseBtnLeft)

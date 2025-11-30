@@ -137,19 +137,19 @@ func (m *MakcuHandle) MouseBtnUp(keyCode byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.mouseButtonByte &^= keyCode
+
 	_, err := m.Write([]byte(input.MouseKeyUp[keyCode]))
 	if err != nil {
 		return err
 	}
 	return nil
 }
-
 func (m *MakcuHandle) LeftClick() error {
 	if m == nil {
 		return fmt.Errorf("LeftClick: MakcuHandle is nil (no device connected)")
 	}
 
-	_, err := m.Write([]byte(".left(1)\r km.left(0)\r"))
+	_, err := m.Write([]byte("km.left(1)\r km.left(0)\r"))
 	if err != nil {
 		logger.Logger.Infof("Failed to click mouse: %v", err)
 		return err
@@ -243,17 +243,19 @@ func (m *MakcuHandle) MiddleClick() error {
 }
 
 const (
-	MOUSE_BUTTON_LEFT   = 1
-	MOUSE_BUTTON_RIGHT  = 2
-	MOUSE_BUTTON_MIDDLE = 3
-	MOUSE_BUTTON_SIDE1  = 4
-	MOUSE_BUTTON_SIDE2  = 5
-	MOUSE_X             = 6
-	MOUSE_Y             = 7
+	MOUSE_BUTTON_LEFT   = 0
+	MOUSE_BUTTON_RIGHT  = 1
+	MOUSE_BUTTON_MIDDLE = 2
+	MOUSE_BUTTON_SIDE1  = 3
+	MOUSE_BUTTON_SIDE2  = 4
+	MOUSE_X             = 5
+	MOUSE_Y             = 6
 )
 
 func (m *MakcuHandle) Click(i int) error {
-	_, err := m.Write([]byte(fmt.Sprintf(".click(%d)\r", i)))
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, err := m.Write([]byte(fmt.Sprintf("km.click(%d,1)\r", i)))
 	if err != nil {
 		logger.Logger.Infof("Failed to middle click mouse: %v", err)
 		return err
@@ -264,7 +266,7 @@ func (m *MakcuHandle) Click(i int) error {
 
 // 启用某按键的连发模式
 func (m *MakcuHandle) Turbo(i int) error {
-	_, err := m.Write([]byte(fmt.Sprintf(".turbo(%d)\r", i)))
+	_, err := m.Write([]byte(fmt.Sprintf("km.turbo(%d)\r", i)))
 	if err != nil {
 		logger.Logger.Infof("Failed to middle click mouse: %v", err)
 		return err
@@ -276,7 +278,8 @@ func (m *MakcuHandle) LockMouse(Button int, lock int) error {
 	if m == nil {
 		return fmt.Errorf("MouseLock: MakcuHandle is nil (no device connected)")
 	}
-
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if lock != 1 && lock != 0 {
 		return fmt.Errorf("MouseLock: lock must be 1(lock) or 0(unlock)")
 	}
@@ -336,7 +339,8 @@ func (m *MakcuHandle) GetButtonStatus() (int, error) {
 	if m == nil {
 		return -1, fmt.Errorf("MAKCU not connected")
 	}
-
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	_, err := m.Write([]byte("km.buttons()\r"))
 	if err != nil {
 		return -1, err
@@ -362,10 +366,11 @@ func (m *MakcuHandle) SetButtonStatus(enable bool) error {
 	if m == nil {
 		return fmt.Errorf("MAKCU not connected")
 	}
-
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var cmd string
 	if enable {
-		cmd = "km.buttons(1)\r"
+		cmd = "km.buttons(1,1)\r"
 	} else {
 		cmd = "km.buttons(0)\r"
 	}
@@ -380,15 +385,16 @@ func (m *MakcuHandle) SetButtonStatus(enable bool) error {
 }
 
 func (m *MakcuHandle) MouseMove(dx, dy, wheel int32) error {
-
+	//m.mu.Lock()
+	//defer m.mu.Unlock()
 	if wheel != 0 {
-		_, err := m.Write([]byte(fmt.Sprintf(".wheel(%d)\r", wheel)))
+		_, err := m.Write([]byte(fmt.Sprintf("km.wheel(%d)\r", wheel)))
 		if err != nil {
 			logger.Logger.Infof("Failed to scroll mouse: Write Error: %v", err)
 			return err
 		}
 	} else {
-		_, err := m.Write([]byte(fmt.Sprintf(".move(%d, %d)\r", dx, dy)))
+		_, err := m.Write([]byte(fmt.Sprintf("km.move(%d, %d)\r", dx, dy)))
 		if err != nil {
 			logger.Logger.Infof("Failed to move mouse: Write Error: %v", err)
 			return err
@@ -403,7 +409,8 @@ func (m *MakcuHandle) MoveMouseWithCurve(x, y int, params ...int) error {
 	if m == nil {
 		return fmt.Errorf("MoveMouseWithCurve: MakcuHandle is nil (no device connected)")
 	}
-
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var cmd string
 	switch len(params) {
 	case 0:
@@ -468,7 +475,7 @@ func (b MouseButton) String() string {
 
 // ----------------------- 修改：listenLoop 函数 -----------------------
 
-func (m *MakcuHandle) listenLoop() {
+func (m *MakcuHandle) ListenLoop() {
 	// 使用一个足够大的缓冲区来读取数据
 	readBuf := make([]byte, 4096)
 	lineBuf := make([]byte, 0, 256) // 用于拼接一行文本
@@ -573,7 +580,7 @@ func (m *MakcuHandle) processTextLine(line []byte) {
 	// 这里可以添加逻辑来匹配和处理带 ID 的命令响应
 	// 例如，检查 content 是否包含 "#" 来识别是哪个命令的响应
 	// 但为了简化，我们只打印
-	logger.Logger.Infof("Received text: %s", content)
+	logger.Logger.Debugf("Received text: %s", content)
 }
 
 // ----------------------- 修改：handleButtonData 函数 -----------------------
@@ -587,7 +594,7 @@ func (m *MakcuHandle) handleButtonData(buttonMask byte) {
 
 	// 计算变化的位
 	changedBits := buttonMask ^ m.lastButtonMask
-	logger.Logger.Infof("Button state changed: 0x%02X -> 0x%02X", m.lastButtonMask, buttonMask)
+	logger.Logger.Debugf("Button state changed: 0x%02X -> 0x%02X", m.lastButtonMask, buttonMask)
 
 	// 遍历每一位，检查哪些按键状态发生了变化
 	for bit := uint(0); bit < 8; bit++ {
@@ -620,7 +627,7 @@ func (m *MakcuHandle) handleButtonData(buttonMask byte) {
 			}
 
 			// 记录按钮状态变化
-			logger.Logger.Infof("Button %s (%v): %s", buttonName, button,
+			logger.Logger.Debugf("Button %s (%v): %s", buttonName, byte(button),
 				map[bool]string{true: "PRESSED", false: "RELEASED"}[isPressed])
 
 			// 调用用户设置的回调函数
